@@ -101,4 +101,35 @@ void main() {
 
     expect(find.text('Speaker 1: What time is the meeting?'), findsOneWidget);
   });
+
+  testWidgets('shows answers as they stream in', (tester) async {
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockStreamHandler(
+      events,
+      MockStreamHandler.inline(
+        onListen: (args, sink) {
+          sink.success(
+            jsonEncode({
+              'type': 'answer_start',
+              'id': 1,
+              'question': 'What time is it?',
+            }),
+          );
+          sink.success(
+            jsonEncode({'type': 'answer_delta', 'id': 1, 'text': 'It is '}),
+          );
+          sink.success(
+            jsonEncode({'type': 'answer_delta', 'id': 1, 'text': 'noon.'}),
+          );
+          sink.success(jsonEncode({'type': 'answer_end', 'id': 1}));
+        },
+      ),
+    );
+
+    await tester.pumpWidget(VoicePilotApp(bridge: NativeBridge()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('VoicePilot: It is noon.'), findsOneWidget);
+  });
 }

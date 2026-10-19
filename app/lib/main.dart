@@ -29,10 +29,14 @@ class VoicePilotApp extends StatelessWidget {
 }
 
 class TranscriptLine {
-  const TranscriptLine(this.text, this.speaker);
+  TranscriptLine(this.text, {this.speaker, this.answerId});
 
-  final String text;
+  /// Grows as answer pieces arrive.
+  String text;
   final int? speaker;
+
+  /// Set when this line is VoicePilot's answer rather than heard speech.
+  final int? answerId;
 }
 
 class HomeScreen extends StatefulWidget {
@@ -109,13 +113,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           final text = event['text'] as String? ?? '';
           if (event['is_final'] == true) {
             _interim = '';
-            _lines.insert(0, TranscriptLine(text, event['speaker'] as int?));
-            if (_lines.length > _maxLines) _lines.removeLast();
+            _addLine(TranscriptLine(text, speaker: event['speaker'] as int?));
           } else {
             _interim = text;
           }
+        case 'answer_start':
+          _addLine(TranscriptLine('', answerId: event['id'] as int?));
+        case 'answer_delta':
+          final line = _answerLine(event['id'] as int?);
+          line?.text += event['text'] as String? ?? '';
       }
     });
+  }
+
+  void _addLine(TranscriptLine line) {
+    _lines.insert(0, line);
+    if (_lines.length > _maxLines) _lines.removeLast();
+  }
+
+  TranscriptLine? _answerLine(int? id) {
+    for (final line in _lines) {
+      if (line.answerId != null && line.answerId == id) return line;
+    }
+    return null;
   }
 
   Future<void> _setListening(bool on) async {
@@ -213,11 +233,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 for (final line in _lines)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      line.speaker == null
-                          ? line.text
-                          : 'Speaker ${line.speaker}: ${line.text}',
-                    ),
+                    child: line.answerId != null
+                        ? Text(
+                            'VoicePilot: ${line.text}',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          )
+                        : Text(
+                            line.speaker == null
+                                ? line.text
+                                : 'Speaker ${line.speaker}: ${line.text}',
+                          ),
                   ),
               ],
             ),

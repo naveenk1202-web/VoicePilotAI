@@ -83,14 +83,16 @@ def parse_deepgram_message(message: dict) -> Transcript | None:
         return None
     best = alternatives[0]
     text = best.get("transcript", "").strip()
-    if not text:
+    speech_final = bool(message.get("speech_final"))
+    # An empty result still matters when it marks the end of an utterance.
+    if not text and not speech_final:
         return None
     words = best.get("words") or []
     speaker = words[0].get("speaker") if words else None
     return Transcript(
         text=text,
         is_final=bool(message.get("is_final")),
-        speech_final=bool(message.get("speech_final")),
+        speech_final=speech_final,
         speaker=speaker,
     )
 
