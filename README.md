@@ -4,8 +4,9 @@ A hands-free voice assistant for Android. It listens in the background,
 understands what is said, and answers privately through your Bluetooth
 earphones. Later milestones add voice control of the apps you allow.
 
-This first milestone has the audio loop: the phone's microphone streams to
-the backend, which returns a live transcript shown in the app.
+So far the phone's microphone streams to the backend, which returns a live
+transcript, spots questions and requests, and streams back short answers
+shown in the app. Speaking answers aloud comes next.
 
 ```
 app/       Flutter app (Android). Native Kotlin for the mic and background service.
@@ -21,10 +22,14 @@ backend/   Python FastAPI relay. Holds API keys, talks to speech services.
   control spoken answers once text-to-speech lands in milestone 3.
 - **Live transcript** with speaker numbers, from Deepgram streaming
   speech-to-text.
+- **Answers.** When someone finishes a question or request, Claude decides
+  whether it needs an answer and streams back one or two sentences. Small
+  talk and statements get no answer.
 
 ## Run the backend
 
-Needs Python 3.11+ and a [Deepgram](https://deepgram.com) API key.
+Needs Python 3.11+, a [Deepgram](https://deepgram.com) API key and an
+[Anthropic](https://console.anthropic.com) API key.
 
 ```sh
 cd backend
@@ -35,7 +40,32 @@ set -a && source .env && set +a
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Run the tests with `python -m pytest`.
+Run the tests with `python -m pytest`. They use fake speech and answer
+services, so they need no keys.
+
+## Test on your laptop
+
+With the backend running:
+
+- **Health check:** `GET http://localhost:8000/health` in Postman or a
+  browser returns `{"ok": true}`.
+- **Connection check in Postman:** New, WebSocket, URL
+  `ws://localhost:8000/ws/session`, header `Authorization: Bearer <your token>`,
+  Connect. You get `{"type":"ready"}`. Send `{"type":"stop"}` to close.
+- **Full test with audio:** record a question, convert it, and stream it:
+
+  ```sh
+  ffmpeg -i question.m4a -ar 16000 -ac 1 -sample_fmt s16 question.wav
+  python tools/stream_wav.py question.wav --token <your token>
+  ```
+
+  It prints what was heard and the answer, for example:
+
+  ```
+  [heard] What's the capital of Australia?
+  [answering] What's the capital of Australia?
+    The capital of Australia is Canberra.
+  ```
 
 ## Run the app in Android Studio
 
